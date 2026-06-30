@@ -1,0 +1,9 @@
+### Signup
+POST http://localhost:8080/auth/signup
+Content-Type: application/json
+
+{
+  "companyName": "Acme Corp",
+  "email": "admin@acme.com",
+  "password": "password123"
+}
