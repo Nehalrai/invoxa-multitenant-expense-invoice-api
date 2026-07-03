@@ -36,3 +36,7 @@ management:
     web:
       exposure:
         include: health,info
+invoxa:
+  rabbitmq:
+    queues:
+      invoice-jobs: invoice.jobs

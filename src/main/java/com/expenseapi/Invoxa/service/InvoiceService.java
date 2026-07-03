@@ -4,6 +4,7 @@ import com.expenseapi.Invoxa.dto.CreateInvoiceRequest;
 import com.expenseapi.Invoxa.dto.InvoiceResponse;
 import com.expenseapi.Invoxa.dto.LineItemResponse;
 import com.expenseapi.Invoxa.model.*;
+import com.expenseapi.Invoxa.messaging.InvoiceJobPublisher;
 import com.expenseapi.Invoxa.repository.ClientRepository;
 import com.expenseapi.Invoxa.repository.InvoiceRepository;
 import com.expenseapi.Invoxa.repository.TenantRepository;
@@ -11,7 +12,8 @@ import com.expenseapi.Invoxa.security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +27,7 @@ public class InvoiceService {
     private final ClientRepository clientRepository;
     private final TenantRepository tenantRepository;
     private final AuditService auditService;
+    private final InvoiceJobPublisher invoiceJobPublisher; // NEW DEPENDENCY
 
     @Transactional
     public InvoiceResponse createInvoice(CreateInvoiceRequest request, AuthenticatedUser currentUser) {
@@ -61,6 +64,16 @@ public class InvoiceService {
         auditService.log(currentUser, "INVOICE_CREATED", "INVOICE", invoice.getId(),
                 "total=" + invoice.getTotalAmount() + ", client=" + client.getName());
 
+        // NEW: publish message to RabbitMQ queue after saving
+        UUID invoiceId = invoice.getId();
+        UUID tenantId = currentUser.getTenantId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                invoiceJobPublisher.publishInvoiceCreated(invoiceId, tenantId);
+            }
+        });
+
         return toResponse(invoice);
     }
 
@@ -90,6 +103,16 @@ public class InvoiceService {
         invoice = invoiceRepository.save(invoice);
 
         auditService.log(currentUser, "INVOICE_SENT", "INVOICE", invoice.getId(), null);
+
+        // NEW: publish message to RabbitMQ queue after marking as sent
+        UUID tenantIdForMsg = currentUser.getTenantId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                invoiceJobPublisher.publishInvoiceSent(invoiceId, tenantIdForMsg);
+            }
+        });
+
         return toResponse(invoice);
     }
 
