@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -23,11 +24,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class InvoiceService {
 
+    private final StripeService stripeService;
     private final InvoiceRepository invoiceRepository;
     private final ClientRepository clientRepository;
     private final TenantRepository tenantRepository;
     private final AuditService auditService;
-    private final InvoiceJobPublisher invoiceJobPublisher; // NEW DEPENDENCY
+    private final InvoiceJobPublisher invoiceJobPublisher;
 
     @Transactional
     public InvoiceResponse createInvoice(CreateInvoiceRequest request, AuthenticatedUser currentUser) {
@@ -64,7 +66,6 @@ public class InvoiceService {
         auditService.log(currentUser, "INVOICE_CREATED", "INVOICE", invoice.getId(),
                 "total=" + invoice.getTotalAmount() + ", client=" + client.getName());
 
-        // NEW: publish message to RabbitMQ queue after saving
         UUID invoiceId = invoice.getId();
         UUID tenantId = currentUser.getTenantId();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -92,19 +93,26 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceResponse markAsSent(UUID invoiceId, AuthenticatedUser currentUser) {
-        Invoice invoice = invoiceRepository.findByIdAndTenantId(invoiceId, currentUser.getTenantId())
+        Invoice invoice = invoiceRepository.findByIdWithDetails(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Invoice not found"));
+
+        if (!invoice.getTenant().getId().equals(currentUser.getTenantId())) {
+            throw new IllegalArgumentException("Invoice not found");
+        }
 
         if (invoice.getStatus() != InvoiceStatus.DRAFT) {
             throw new IllegalArgumentException("Only DRAFT invoices can be marked as sent");
         }
 
+        // Generate Stripe payment link when sending the invoice
+        String paymentLink = stripeService.createCheckoutSession(invoice);
+        invoice.setStripePaymentLink(paymentLink);
         invoice.setStatus(InvoiceStatus.SENT);
         invoice = invoiceRepository.save(invoice);
 
-        auditService.log(currentUser, "INVOICE_SENT", "INVOICE", invoice.getId(), null);
+        auditService.log(currentUser, "INVOICE_SENT", "INVOICE", invoice.getId(),
+                "stripe_payment_link=" + paymentLink);
 
-        // NEW: publish message to RabbitMQ queue after marking as sent
         UUID tenantIdForMsg = currentUser.getTenantId();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

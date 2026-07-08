@@ -40,3 +40,6 @@ invoxa:
   rabbitmq:
     queues:
       invoice-jobs: invoice.jobs
+stripe:
+  secret-key: sk_test_51TpYg73Rs2adcGaZpGWOjcuBIe1yb9p9rcVg9tClcAJ0HZjxbI0I3HHsoVYb5ThGsePlvzF7CfUBPIx7vzBmCcJW0096Zkzsoh
+  webhook-secret: whsec_2deae038e896c1f0993542ff28d96e8422fe3068a260500484c33a428258db39
