@@ -28,6 +28,7 @@ import java.util.UUID;
 public class StripeService {
 
     private final InvoiceRepository invoiceRepository;
+    private final OutboundWebhookService outboundWebhookService;
     private final ProcessedStripeEventRepository processedStripeEventRepository;
 
     @Value("${stripe.secret-key}")
@@ -71,11 +72,13 @@ public class StripeService {
                     .build();
 
             Session session = Session.create(params);
-            log.info("Created Stripe checkout session: {} for invoice: {}", session.getId(), invoice.getInvoiceNumber());
+            log.info("Created Stripe checkout session: {} for invoice: {}",
+                    session.getId(), invoice.getInvoiceNumber());
             return session.getUrl();
 
         } catch (Exception e) {
-            log.error("Failed to create Stripe checkout session for invoice: {}", invoice.getInvoiceNumber(), e);
+            log.error("Failed to create Stripe checkout session for invoice: {}",
+                    invoice.getInvoiceNumber(), e);
             throw new RuntimeException("Failed to create payment link", e);
         }
     }
@@ -99,15 +102,11 @@ public class StripeService {
         try {
             if ("checkout.session.completed".equals(event.getType())) {
 
-                log.info("Full event JSON: {}", payload);
-
                 Gson gson = new Gson();
                 JsonObject eventJson = gson.fromJson(payload, JsonObject.class);
                 JsonObject sessionData = eventJson
                         .getAsJsonObject("data")
                         .getAsJsonObject("object");
-
-                log.info("Session data: {}", sessionData);
 
                 JsonObject metadata = sessionData.getAsJsonObject("metadata");
                 if (metadata == null || !metadata.has("invoiceId")) {
@@ -116,8 +115,6 @@ public class StripeService {
                 }
 
                 String invoiceIdStr = metadata.get("invoiceId").getAsString();
-                log.info("Processing payment for invoiceId: {}", invoiceIdStr);
-
                 UUID invoiceId = UUID.fromString(invoiceIdStr);
 
                 Invoice invoice = invoiceRepository.findById(invoiceId)
@@ -127,6 +124,7 @@ public class StripeService {
                 invoiceRepository.save(invoice);
 
                 processedStripeEventRepository.save(new ProcessedStripeEvent(event.getId()));
+                outboundWebhookService.sendInvoicePaidWebhook(invoice);
 
                 log.info("Invoice {} marked as PAID via Stripe webhook event: {}",
                         invoice.getInvoiceNumber(), event.getId());

@@ -10,5 +10,4 @@ public class InvoxaApplication {
 		System.setProperty("user.timezone", "UTC");
 		SpringApplication.run(InvoxaApplication.class, args);
 	}
-
 }

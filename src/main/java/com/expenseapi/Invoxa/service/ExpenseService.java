@@ -4,7 +4,6 @@ import com.expenseapi.Invoxa.dto.CreateExpenseRequest;
 import com.expenseapi.Invoxa.dto.ExpenseResponse;
 import com.expenseapi.Invoxa.model.Expense;
 import com.expenseapi.Invoxa.model.ExpenseStatus;
-import com.expenseapi.Invoxa.model.Tenant;
 import com.expenseapi.Invoxa.model.User;
 import com.expenseapi.Invoxa.repository.ExpenseRepository;
 import com.expenseapi.Invoxa.repository.UserRepository;
@@ -19,9 +18,10 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ExpenseService {
-    private final AuditService auditService;
+
     private final ExpenseRepository expenseRepository;
     private final UserRepository userRepository;
+    private final AuditService auditService;
 
     public ExpenseResponse createExpense(CreateExpenseRequest request, AuthenticatedUser currentUser) {
         User user = userRepository.findById(currentUser.getUserId())
@@ -35,6 +35,7 @@ public class ExpenseService {
         expense.setDescription(request.getDescription());
 
         expense = expenseRepository.save(expense);
+
         auditService.log(currentUser, "EXPENSE_CREATED", "EXPENSE", expense.getId(),
                 "amount=" + expense.getAmount() + ", category=" + expense.getCategory());
 
@@ -72,8 +73,10 @@ public class ExpenseService {
 
         expense.setStatus(newStatus);
         expense = expenseRepository.save(expense);
+
         auditService.log(currentUser, "EXPENSE_" + newStatus.name(), "EXPENSE", expense.getId(),
-                "previous_status=PENDING, new_status=" + newStatus.name());
+                "new_status=" + newStatus.name());
+
         return toResponse(expense);
     }
 

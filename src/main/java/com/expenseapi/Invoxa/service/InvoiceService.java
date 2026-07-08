@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 public class InvoiceService {
 
     private final StripeService stripeService;
+    private final OutboundWebhookService outboundWebhookService;
     private final InvoiceRepository invoiceRepository;
     private final ClientRepository clientRepository;
     private final TenantRepository tenantRepository;
@@ -62,6 +63,7 @@ public class InvoiceService {
 
         invoice.setTotalAmount(total);
         invoice = invoiceRepository.save(invoice);
+        outboundWebhookService.sendInvoicePaidWebhook(invoice);
 
         auditService.log(currentUser, "INVOICE_CREATED", "INVOICE", invoice.getId(),
                 "total=" + invoice.getTotalAmount() + ", client=" + client.getName());
@@ -104,7 +106,6 @@ public class InvoiceService {
             throw new IllegalArgumentException("Only DRAFT invoices can be marked as sent");
         }
 
-        // Generate Stripe payment link when sending the invoice
         String paymentLink = stripeService.createCheckoutSession(invoice);
         invoice.setStripePaymentLink(paymentLink);
         invoice.setStatus(InvoiceStatus.SENT);
