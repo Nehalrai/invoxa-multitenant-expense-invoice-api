@@ -46,8 +46,8 @@ public class StripeService {
         try {
             SessionCreateParams params = SessionCreateParams.builder()
                     .setMode(SessionCreateParams.Mode.PAYMENT)
-                    .setSuccessUrl("http://localhost:8080/invoices/" + invoice.getId() + "?payment=success")
-                    .setCancelUrl("http://localhost:8080/invoices/" + invoice.getId() + "?payment=cancelled")
+                    .setSuccessUrl("https://invoxa-multitenant-expense-invoice.vercel.app/invoices?payment=success")
+                    .setCancelUrl("https://invoxa-multitenant-expense-invoice.vercel.app/invoices?payment=cancelled")
                     .addLineItem(
                             SessionCreateParams.LineItem.builder()
                                     .setQuantity(1L)
