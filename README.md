@@ -2,6 +2,7 @@
 
 A production-grade, backend-heavy SaaS API built with **Java 21 + Spring Boot**, demonstrating multi-tenancy, JWT authentication, role-based access control, asynchronous processing, real Stripe payment integration, and outbound webhook delivery.
 
+**Live Frontend**: https://invoxa-multitenant-expense-invoice.vercel.app  
 **Live API**: https://invoxa-multitenant-expense-invoice-api-production.up.railway.app  
 **Swagger UI**: https://invoxa-multitenant-expense-invoice-api-production.up.railway.app/swagger-ui/index.html  
 **GitHub**: https://github.com/Nehalrai/invoxa-multitenant-expense-invoice-api
@@ -28,6 +29,12 @@ A production-grade, backend-heavy SaaS API built with **Java 21 + Spring Boot**,
 ### Database Schema — 9 Tables via Flyway Migrations
 ![Database Schema](screenshots/database_schema.png)
 
+### Team Management — Role-Based Access Control
+![Team Page](screenshots/teamPage.png)
+
+### Employee View — Limited Access (Dashboard + Expenses only)
+![Employee View](screenshots/employee.png)
+
 ---
 
 ## What It Does
@@ -44,6 +51,11 @@ Invoxa is the backend for a B2B SaaS platform where multiple companies (tenants)
 - Sending an invoice generates a real Stripe Checkout payment link
 - When a client pays via Stripe, a webhook marks the invoice as PAID automatically
 - If a tenant has registered a webhook URL, they receive an `invoice.paid` notification
+
+**Team Management**
+- Admins can invite team members with specific roles (ADMIN, ACCOUNTANT, EMPLOYEE)
+- Role-based UI: employees only see Dashboard and Expenses; accountants see invoices and clients; admins see everything including team management
+- Each role enforced both on the frontend (UI hiding) and backend (`@PreAuthorize` method-level security)
 
 ---
 
@@ -64,7 +76,9 @@ Invoxa is the backend for a B2B SaaS platform where multiple companies (tenants)
 | Rate Limiting | Bucket4j |
 | API Docs | Springdoc OpenAPI 3 (Swagger UI) |
 | Containerization | Docker + Docker Compose |
-| Deployment | Railway |
+| Backend Deployment | Railway |
+| Frontend | React + Vite + Tailwind CSS |
+| Frontend Deployment | Vercel |
 
 ---
 
@@ -84,7 +98,7 @@ Controller → Service → Repository (all queries scoped by tenantId)
      ├── RabbitMQ Publisher (after DB commit via afterCommit())
      │        │
      │        ▼
-     │   RabbitMQ Queue
+     │   RabbitMQ Queue (CloudAMQP)
      │        │
      │        ▼
      │   InvoiceJobConsumer (background thread)
@@ -115,6 +129,8 @@ Alternative considered: schema-per-tenant (stronger isolation, higher operationa
 Three roles per tenant: `ADMIN`, `ACCOUNTANT`, `EMPLOYEE`
 - Method-level enforcement via `@PreAuthorize("hasRole('ADMIN') or hasRole('ACCOUNTANT')")`
 - Checked before business logic runs, not after
+- Frontend UI conditionally renders tabs and action buttons based on role
+- Full demo workflow: Admin invites Employee → Employee submits expense → Admin approves it
 
 ### Asynchronous Invoice Processing
 - Creating/sending an invoice returns immediately to the caller
@@ -152,6 +168,12 @@ Three roles per tenant: `ADMIN`, `ACCOUNTANT`, `EMPLOYEE`
 | POST | `/auth/signup` | Public | Create tenant + admin user, returns JWT |
 | POST | `/auth/login` | Public | Login, returns JWT |
 | GET | `/auth/me` | Authenticated | Returns decoded JWT claims |
+
+### Users / Team
+| Method | Path | Access | Description |
+|---|---|---|---|
+| POST | `/users/invite` | Admin only | Add a team member with a role |
+| GET | `/users` | Admin only | List all team members in tenant |
 
 ### Expenses
 | Method | Path | Access | Description |
@@ -205,7 +227,25 @@ processed_stripe_events (idempotency table)
 flyway_schema_history (Flyway internal tracking)
 ```
 
-Schema managed entirely by **Flyway** versioned migrations (V1–V5). Hibernate is set to `validate` mode locally — it checks entities match the schema but never auto-generates DDL.
+Schema managed entirely by **Flyway** versioned migrations (V1–V5). Hibernate is set to `validate` mode locally.
+
+---
+
+## Demo Workflow
+
+Here's the full intended workflow to demo the project:
+
+**1. Sign up** — creates a new company (tenant) + admin user  
+**2. Add team members** — Team tab → add an employee and an accountant  
+**3. Log in as employee** — notice limited UI (only Dashboard + Expenses)  
+**4. Submit expense** — employee submits a travel/software expense  
+**5. Log back in as admin** — see the employee's expense, approve it  
+**6. Add a client** — Clients tab → add a company you're billing  
+**7. Create an invoice** — Invoices tab → add line items, total auto-calculates  
+**8. Send invoice** — generates real Stripe Checkout link  
+**9. Pay via Stripe** — use test card `4242 4242 4242 4242`  
+**10. Invoice auto-marked PAID** — via Stripe webhook  
+**11. Check Dashboard** — stats update: approved expenses, paid revenue  
 
 ---
 
@@ -215,6 +255,7 @@ Schema managed entirely by **Flyway** versioned migrations (V1–V5). Hibernate 
 - Java 21
 - Docker Desktop
 - Stripe CLI (for webhook testing)
+- Node.js 18+
 
 ### Setup
 
@@ -278,43 +319,28 @@ springdoc:
 docker-compose up -d
 ```
 
-**4. Run the app**
+**4. Run the backend**
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.jvmArguments="-Duser.timezone=UTC"
 ```
 
-**5. Verify**
+**5. Run the frontend**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+**6. Verify**
 ```
 http://localhost:8080/actuator/health       →  {"status":"UP"}
 http://localhost:8080/swagger-ui/index.html →  Full API docs
+http://localhost:5173                        →  Frontend
 ```
 
-**6. Test Stripe webhooks locally**
+**7. Test Stripe webhooks locally**
 ```bash
 stripe listen --forward-to localhost:8080/webhooks/stripe
-```
-
----
-
-## Quick API Test
-
-```powershell
-# Signup — creates a new tenant + admin user
-$r = Invoke-RestMethod -Uri "https://invoxa-multitenant-expense-invoice-api-production.up.railway.app/auth/signup" `
-  -Method Post -ContentType "application/json" `
-  -Body '{"companyName":"Acme Corp","email":"admin@acme.com","password":"password123"}'
-
-$token = $r.token
-
-# Submit an expense
-Invoke-RestMethod -Uri "https://invoxa-multitenant-expense-invoice-api-production.up.railway.app/expenses" `
-  -Method Post -Headers @{ Authorization = "Bearer $token" } `
-  -ContentType "application/json" `
-  -Body '{"amount": 49.99, "category": "Software", "description": "Postman license"}'
-
-# List your expenses
-Invoke-RestMethod -Uri "https://invoxa-multitenant-expense-invoice-api-production.up.railway.app/expenses/me" `
-  -Method Get -Headers @{ Authorization = "Bearer $token" }
 ```
 
 ---
@@ -325,12 +351,12 @@ Invoke-RestMethod -Uri "https://invoxa-multitenant-expense-invoice-api-productio
 |---|---|
 | Row-level multi-tenancy | Schema-per-tenant for stronger isolation |
 | Global unique email | Email unique per tenant |
+| Admin sets password when inviting users | Email-based invitation with temporary password |
 | Local PDF storage | S3/object storage with signed URLs |
 | Stripe test mode | Stripe live mode with key rotation |
 | Single RabbitMQ consumer | Horizontally scaled consumer pool |
 | In-memory rate limiting (Bucket4j) | Redis-backed distributed rate limiting |
 | JWT secret in config file | AWS Secrets Manager / HashiCorp Vault |
-| Manual DB migration on Railway | Automated Flyway on startup |
 
 ---
 
@@ -338,24 +364,32 @@ Invoke-RestMethod -Uri "https://invoxa-multitenant-expense-invoice-api-productio
 
 ```
 src/main/java/com/expenseapi/Invoxa/
-├── config/          # SecurityConfig, RabbitMQConfig, OpenApiConfig
+├── config/          # SecurityConfig, RabbitMQConfig, OpenApiConfig, CorsConfig
 ├── controller/      # AuthController, ExpenseController, InvoiceController,
-│                    # ClientController, TenantController, StripeWebhookController
+│                    # ClientController, TenantController, UserController,
+│                    # StripeWebhookController
 ├── dto/             # Request/Response DTOs with Bean Validation
 ├── messaging/       # InvoiceJobPublisher, InvoiceJobConsumer, InvoiceMessage
 ├── model/           # JPA entities (Tenant, User, Expense, Invoice, etc.)
 ├── repository/      # Spring Data JPA repositories
 ├── security/        # JwtService, JwtAuthFilter, AuthenticatedUser, RateLimitFilter
-└── service/         # AuthService, ExpenseService, InvoiceService,
+└── service/         # AuthService, ExpenseService, InvoiceService, UserService
                      # AuditService, StripeService, OutboundWebhookService,
                      # PdfGenerationService, ClientService
+
+frontend/            # React + Vite + Tailwind CSS
+├── src/
+│   ├── pages/       # Dashboard, Expenses, Invoices, Clients, Team, AuthPage
+│   ├── components/  # Layout (role-based navigation)
+│   ├── AuthContext.jsx
+│   └── api.js
 ```
 
 ---
 
 ## Author
 
-**Nehal Rai** — BTech Computer Science  
+**Nehal Rai** — BTech Information Technology
 Built as a portfolio project demonstrating production-grade backend engineering patterns.
 
 [![GitHub](https://img.shields.io/badge/GitHub-Nehalrai-black?logo=github)](https://github.com/Nehalrai)
