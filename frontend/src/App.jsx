@@ -6,6 +6,7 @@ import Expenses from './pages/Expenses'
 import Invoices from './pages/Invoices'
 import Clients from './pages/Clients'
 import Layout from './components/Layout'
+import Team from './pages/Team'
 
 function ProtectedRoute({ children }) {
   const { token } = useAuth()
@@ -22,6 +23,7 @@ function AppRoutes() {
         <Route path="expenses" element={<Expenses />} />
         <Route path="invoices" element={<Invoices />} />
         <Route path="clients" element={<Clients />} />
+        <Route path="team" element={<Team />} />
       </Route>
     </Routes>
   )

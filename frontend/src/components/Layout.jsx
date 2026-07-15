@@ -21,6 +21,7 @@ export default function Layout() {
               { to: '/expenses', label: 'Expenses' },
               { to: '/invoices', label: 'Invoices' },
               { to: '/clients', label: 'Clients' },
+              { to: '/team', label: 'Team' },
             ].map(({ to, label }) => (
               <NavLink
                 key={to}
