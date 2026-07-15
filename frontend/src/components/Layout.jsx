@@ -10,19 +10,25 @@ export default function Layout() {
     navigate('/auth')
   }
 
+  const navLinks = [
+    { to: '/', label: 'Dashboard' },
+    { to: '/expenses', label: 'Expenses' },
+    ...(user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT' ? [
+      { to: '/invoices', label: 'Invoices' },
+      { to: '/clients', label: 'Clients' },
+    ] : []),
+    ...(user?.role === 'ADMIN' ? [
+      { to: '/team', label: 'Team' },
+    ] : []),
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <span className="text-xl font-bold text-indigo-600">Invoxa</span>
           <div className="flex gap-6">
-            {[
-              { to: '/', label: 'Dashboard' },
-              { to: '/expenses', label: 'Expenses' },
-              { to: '/invoices', label: 'Invoices' },
-              { to: '/clients', label: 'Clients' },
-              { to: '/team', label: 'Team' },
-            ].map(({ to, label }) => (
+            {navLinks.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}
