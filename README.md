@@ -2,10 +2,10 @@
 
 A production-grade backend SaaS API built with **Java 21 + Spring Boot**, demonstrating multi-tenancy, JWT auth, role-based access control, async processing via RabbitMQ, real Stripe payment integration, and outbound webhook delivery.
 
-**Live Frontend**: https://invoxa-multitenant-expense-invoice.vercel.app
-**Live API**: https://invoxa-multitenant-expense-invoice-api-production.up.railway.app
-**Swagger UI**: https://invoxa-multitenant-expense-invoice-api-production.up.railway.app/swagger-ui/index.html
-**GitHub**: https://github.com/Nehalrai/invoxa-multitenant-expense-invoice-api
+- **Live Frontend**: https://invoxa-multitenant-expense-invoice.vercel.app
+- **Live API**: https://invoxa-multitenant-expense-invoice-api-production.up.railway.app
+- **Swagger UI**: https://invoxa-multitenant-expense-invoice-api-production.up.railway.app/swagger-ui/index.html
+- **GitHub**: https://github.com/Nehalrai/invoxa-multitenant-expense-invoice-api
 
 ---
 
@@ -77,7 +77,11 @@ Java 21 · Spring Boot 4.1 · PostgreSQL 18 · Spring Data JPA/Hibernate · Flyw
 |---|---|---|
 | ![Swagger](screenshots/swagger_ui.png) | ![Checkout](screenshots/payment_page.png) | ![RabbitMQ](screenshots/RabbitMq.png) |
 
-More in [`/screenshots`](screenshots) — audit log, webhook confirmation, DB schema, role-based team views.
+| Employee Dashboard | Admin — Team Management |
+|---|---|
+| ![Employee View](screenshots/employee.png) | ![Team Page](screenshots/teamPage.png) |
+
+More in [`/screenshots`](screenshots) — audit log, webhook confirmation, DB schema.
 
 ---
 
