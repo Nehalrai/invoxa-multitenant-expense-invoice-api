@@ -1,4 +1,4 @@
-# Invoxa — Multi-Tenant Expense & Invoice Management API
+# Invoxa - Multi-Tenant Expense & Invoice Management API
 
 A production-grade backend SaaS API built with **Java 21 + Spring Boot**, demonstrating multi-tenancy, JWT auth, role-based access control, async processing via RabbitMQ, real Stripe payment integration, and outbound webhook delivery.
 
@@ -47,7 +47,7 @@ Controller → Service → Repository (all queries scoped by tenantId)
          Stripe Webhook → marks invoice PAID → fires outbound webhook
 ```
 
-**Multi-tenancy**: shared-schema, row-level isolation — every table has a `tenant_id` column pulled from the JWT (never trusted from the request body), and every query is explicitly scoped to it. Schema-per-tenant is the documented upgrade path for stronger isolation at scale.
+**Multi-tenancy**: shared-schema, row-level isolation - every table has a `tenant_id` column pulled from the JWT (never trusted from the request body), and every query is explicitly scoped to it. Schema-per-tenant is the documented upgrade path for stronger isolation at scale.
 
 ---
 
@@ -59,15 +59,15 @@ Java 21 · Spring Boot 4.1 · PostgreSQL 18 · Spring Data JPA/Hibernate · Flyw
 
 ## Engineering Decisions Worth Noting
 
-**Async invoice processing** — Creating/sending an invoice returns immediately. The RabbitMQ message is published only after the DB transaction commits (`TransactionSynchronizationManager` → `afterCommit()`), avoiding a race where the consumer fetches a record that hasn't committed yet. The consumer uses `JOIN FETCH` to sidestep lazy-loading issues in a detached Hibernate context.
+**Async invoice processing** - Creating/sending an invoice returns immediately. The RabbitMQ message is published only after the DB transaction commits (`TransactionSynchronizationManager` → `afterCommit()`), avoiding a race where the consumer fetches a record that hasn't committed yet. The consumer uses `JOIN FETCH` to sidestep lazy-loading issues in a detached Hibernate context.
 
-**Stripe webhook idempotency** — Stripe delivers webhooks at-least-once, so duplicates are expected. Every processed `event.id` is stored in a `processed_stripe_events` table and checked before processing; signatures are verified via `Webhook.constructEvent()` first.
+**Stripe webhook idempotency** - Stripe delivers webhooks at-least-once, so duplicates are expected. Every processed `event.id` is stored in a `processed_stripe_events` table and checked before processing; signatures are verified via `Webhook.constructEvent()` first.
 
-**Audit logging** — Immutable, append-only, and self-contained (no FK to `users`), so records survive user deletion. Covers every expense and invoice state change.
+**Audit logging** - Immutable, append-only, and self-contained (no FK to `users`), so records survive user deletion. Covers every expense and invoice state change.
 
-**Outbound webhooks** — Tenants register a callback URL; invoice-paid events POST a JSON payload to it. Delivery failures are logged but never block the payment flow itself.
+**Outbound webhooks** - Tenants register a callback URL; invoice-paid events POST a JSON payload to it. Delivery failures are logged but never block the payment flow itself.
 
-**Rate limiting** — Login is capped at 10 req/min per IP via Bucket4j, returning `429` when exceeded.
+**Rate limiting** - Login is capped at 10 req/min per IP via Bucket4j, returning `429` when exceeded.
 
 ---
 
@@ -77,11 +77,11 @@ Java 21 · Spring Boot 4.1 · PostgreSQL 18 · Spring Data JPA/Hibernate · Flyw
 |---|---|---|
 | ![Swagger](screenshots/swagger_ui.png) | ![Checkout](screenshots/payment_page.png) | ![RabbitMQ](screenshots/RabbitMq.png) |
 
-| Employee Dashboard | Admin — Team Management |
+| Employee Dashboard | Admin - Team Management |
 |---|---|
 | ![Employee View](screenshots/employee.png) | ![Team Page](screenshots/teamPage.png) |
 
-More in [`/screenshots`](screenshots) — audit log, webhook confirmation, DB schema.
+More in [`/screenshots`](screenshots) - audit log, webhook confirmation, DB schema.
 
 ---
 
@@ -107,7 +107,7 @@ docker-compose up -d
 cd frontend && npm install && npm run dev
 ```
 
-Needs `src/main/resources/application.yaml` (gitignored — contains secrets) with your Postgres, RabbitMQ, JWT, and Stripe config. See [`SETUP.md`](SETUP.md) for the full template and Stripe CLI webhook setup.
+Needs `src/main/resources/application.yaml` (gitignored - contains secrets) with your Postgres, RabbitMQ, JWT, and Stripe config. See [`SETUP.md`](SETUP.md) for the full template and Stripe CLI webhook setup.
 
 Verify: `localhost:8080/actuator/health`, `localhost:8080/swagger-ui/index.html`, `localhost:5173`.
 
